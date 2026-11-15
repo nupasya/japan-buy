@@ -113,7 +113,7 @@
 <body>
 <header>
   <h1>Что купить</h1>
-  <p class="note">Нажми на фото, чтобы увеличить. Галочка значит «уже взяла» и запоминается на этом телефоне. Новые вещи снизу тоже остаются на этом телефоне: ссылка на другом устройстве их не покажет.</p>
+  <p class="note">Нажми на фото, чтобы увеличить. Галочка значит «уже взяла» и запоминается на этом телефоне. Блок «Общие покупки» берётся из общей таблицы и виден всем по этой ссылке. Форма внизу по-прежнему только для этого телефона.</p>
 </header>
 <div class="pages" id="pages">
   <button type="button" class="on" data-page="buy">Что купить</button>
@@ -128,6 +128,7 @@
   <button data-f="pharmacy">Аптека</button>
   <button data-f="food">Еда</button>
   <button data-f="mine">Мои</button>
+  <button data-f="shared">Общие</button>
 </div>
 <main id="list"></main>
 <form class="adder" id="adder">
@@ -253,6 +254,8 @@ function card(item, extra) {
 
 function render() {
   list.innerHTML = "";
+  if (filter === "all" || filter === "shared") renderShared();
+  if (filter === "shared") return;
   const groups = [
     ["clothes", "Одежда, Uniqlo Гиндза"],
     ["face", "Кожа и лицо"],
@@ -501,6 +504,97 @@ document.getElementById("citybar").addEventListener("click", (e) => {
   document.querySelectorAll("#citybar button").forEach((b) => b.classList.toggle("on", b === btn));
   renderShops();
 });
+
+let sharedItems = [];
+let sharedError = "";
+function cellText(cell) {
+  if (!cell) return "";
+  const raw = cell.v != null ? cell.v : (cell.f || "");
+  return String(raw).trim();
+}
+function imageSrc(raw) {
+  if (!raw) return "";
+  const formula = raw.match(/IMAGE\("([^"]+)"/i);
+  const text = formula ? formula[1] : raw;
+  const url = (text.match(/https?:\/\/[^\s)"]+/) || [])[0] || "";
+  if (!url) return "";
+  const drive = url.match(/drive\.google\.com\/file\/d\/([^/]+)/) || url.match(/[?&]id=([^&]+)/);
+  if (drive) return "https://drive.google.com/thumbnail?id=" + drive[1] + "&sz=w1600";
+  return url;
+}
+function renderShared() {
+  const h = document.createElement("h2");
+  h.textContent = "Общие покупки";
+  list.append(h);
+  const note = document.createElement("p");
+  note.className = "note";
+  note.append("Строки из ");
+  const link = document.createElement("a");
+  link.href = "https://docs.google.com/spreadsheets/d/1vh2vOT2pGKAaWOT64k7IpY3hs09PRpUMVi-DAVqqXFM/edit?gid=1478679226#gid=1478679226";
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = "общей таблицы";
+  note.append(link, ". В «Категория» напишите Одежда, Лицо, Волосы, Аптека или Еда, либо своё слово: страница сама соберёт новую группу. В «Фото» нужна ссылка на картинку. Картинка, вставленная прямо в ячейку, на сайт не выходит. Файл на Диске откройте доступом «все, у кого есть ссылка» и вставьте эту ссылку. После новой строки обновите страницу.");
+  list.append(note);
+  if (sharedError) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.textContent = sharedError;
+    list.append(p);
+    return;
+  }
+  if (!sharedItems.length) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.textContent = "Пока пусто. Добавляйте строки в таблицу «Общие покупки».";
+    list.append(p);
+    return;
+  }
+  const cats = [];
+  sharedItems.forEach((item) => { if (!cats.includes(item.cat)) cats.push(item.cat); });
+  cats.forEach((cat) => {
+    const sub = document.createElement("h3");
+    sub.textContent = cat;
+    list.append(sub);
+    sharedItems.filter((item) => item.cat === cat).forEach((item) => list.append(card(item)));
+  });
+}
+window.japanSheet = function (resp) {
+  sharedError = "";
+  sharedItems = [];
+  const rows = (resp && resp.table && resp.table.rows) || [];
+  rows.forEach((row, index) => {
+    const cells = row.c || [];
+    const photo = cellText(cells[0]);
+    const title = cellText(cells[1]);
+    const where = cellText(cells[2]);
+    const cat = cellText(cells[3]);
+    if (index === 0 && (title === "Что это" || photo === "Фото")) return;
+    if (!title && !photo && !where) return;
+    const src = imageSrc(photo);
+    sharedItems.push({
+      id: "s" + index,
+      title: title || "Без названия",
+      text: where ? "Где купить: " + where : "",
+      cat: cat || "Без категории",
+      photos: src ? [src] : []
+    });
+  });
+  render();
+};
+function loadShared() {
+  const old = document.getElementById("sheet-jsonp");
+  if (old) old.remove();
+  const s = document.createElement("script");
+  s.id = "sheet-jsonp";
+  s.src = "https://docs.google.com/spreadsheets/d/1vh2vOT2pGKAaWOT64k7IpY3hs09PRpUMVi-DAVqqXFM/gviz/tq?tqx=" + encodeURIComponent("out:json;responseHandler:japanSheet") + "&gid=1478679226&t=" + Date.now();
+  s.onerror = () => {
+    sharedError = "Таблица не открылась. Проверьте, что доступ к ней: «все, у кого есть ссылка, могут просматривать».";
+    render();
+  };
+  document.body.appendChild(s);
+}
+loadShared();
 loadMine();
 
 </script>
