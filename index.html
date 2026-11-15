@@ -534,7 +534,13 @@ function renderShared() {
   link.target = "_blank";
   link.rel = "noopener";
   link.textContent = "общей таблицы";
-  note.append(link, ". В «Категория» напишите Одежда, Лицо, Волосы, Аптека или Еда, либо своё слово: страница сама соберёт новую группу. В «Фото» нужна ссылка на картинку. Картинка, вставленная прямо в ячейку, на сайт не выходит. Файл на Диске откройте доступом «все, у кого есть ссылка» и вставьте эту ссылку. После новой строки обновите страницу.");
+  note.append(link, ". Фото кладите в папку ");
+  const folder = document.createElement("a");
+  folder.href = "https://drive.google.com/drive/folders/100-gH0we28ddHOunt1gXhKz1vRPnchYF";
+  folder.target = "_blank";
+  folder.rel = "noopener";
+  folder.textContent = "Общие покупки";
+  note.append(folder, " и в колонку «Фото» вставляйте ссылку на файл. В «Категория» напишите Одежда, Лицо, Волосы, Аптека или Еда, либо своё слово: страница сама соберёт новую группу. После новой строки обновите страницу.");
   list.append(note);
   if (sharedError) {
     const p = document.createElement("p");
