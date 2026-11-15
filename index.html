@@ -101,6 +101,12 @@
   #zoom .stage { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; }
   #zoom img { display: block; margin: 0 auto; transform-origin: center top; }
   button.danger { color: var(--accent); }
+  .pages { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; padding: 0 16px 8px; }
+  .pages button { flex: 1; border: 1px solid var(--line); background: var(--paper); border-radius: 12px; font: inherit; font-size: 16px; padding: 10px; }
+  .pages button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  a.addr { display: inline-block; margin: 6px 0; color: var(--accent); }
+  .hidden { display: none !important; }
+  h3 { font-size: 18px; margin: 18px 0 4px; }
   footer { max-width: 760px; margin: 0 auto; padding: 8px 16px 48px; color: var(--muted); font-size: 14px; }
 </style>
 </head>
@@ -109,6 +115,11 @@
   <h1>Что купить</h1>
   <p class="note">Нажми на фото, чтобы увеличить. Галочка значит «уже взяла» и запоминается на этом телефоне. Новые вещи снизу тоже остаются на этом телефоне: ссылка на другом устройстве их не покажет.</p>
 </header>
+<div class="pages" id="pages">
+  <button type="button" class="on" data-page="buy">Что купить</button>
+  <button type="button" data-page="shops">Магазины</button>
+</div>
+<div id="buy-view">
 <div class="bar" id="bar">
   <button class="on" data-f="all">Всё</button>
   <button data-f="clothes">Одежда</button>
@@ -134,6 +145,17 @@
     <button type="button" id="zoom-close" aria-label="Закрыть">Закрыть</button>
   </div>
   <div class="stage"><img id="zoom-img" alt=""></div>
+</div>
+</div>
+<div id="shops-view" class="hidden">
+  <div class="bar" id="citybar">
+    <button type="button" class="on" data-city="all">Все города</button>
+    <button type="button" data-city="osaka">Осака</button>
+    <button type="button" data-city="kyoto">Киото</button>
+    <button type="button" data-city="tokyo">Токио</button>
+    <button type="button" data-city="nara">Нара</button>
+  </div>
+  <main id="shops"></main>
 </div>
 <footer>Аптека и волосы в Токио: Matsukiyo, Sundrug, Seims, Daikoku, комби, подвалы торговых центров. Удобно собрать утром 7 декабря у Кита-Сэндзю. Royce и KitKat в Ханеде 8 декабря.</footer>
 <script>
@@ -358,7 +380,129 @@ document.getElementById("adder").addEventListener("submit", async (e) => {
   document.querySelectorAll("#bar button").forEach((b) => b.classList.toggle("on", b.dataset.f === "mine"));
   loadMine();
 });
+
+const SHOPS = [
+  ["osaka","Намба и Синсайбаси","Догуясюдзи и Kyoya","Sennichimae Doguyasuji, Namba, Chuo-ku, Osaka","Улица новой посуды для ресторанов. Kyoya на ней же, самая дешёвая керамика, часто от нескольких сотен йен. 21 ноября после Ситэннодзи."],
+  ["osaka","Намба и Синсайбаси","Namba Parks и Hinoya","2-10-70 Nambanaka, Naniwa-ku, Osaka","Торговый центр местных марок. Hinoya на 4 этаже: деним Sugar Cane чаще 18–28 тысяч йен, Momotaro 28–40 тысяч. Выбор меньше, чем в Уэно. 11:00–21:00."],
+  ["osaka","Намба и Синсайбаси","Рынок Ситэннодзи","1-11-18 Shitennoji, Tennoji-ku, Osaka","Храмовый рынок посуды и антиквариата. Каждое 21 и 22 число, примерно 8:30–16:00. Ваше утро 21 ноября. Вход свободный, нужны наличные."],
+  ["osaka","Намба и Синсайбаси","Onitsuka Tiger, Дотонбори","1-8-14 Dotonbori, Chuo-ku, Osaka","Те же кроссовки Mexico 66, обычно 13–22 тысячи йен. 11:00–20:00. Улица туристическая. Основная примерка на Омотэсандо, сюда если уже в Намбе и нет размера."],
+  ["osaka","Намба и Синсайбаси","ABC Mart, Namba City","Namba City B2, 5-1-60 Namba, Chuo-ku, Osaka","Обычная обувь без очереди за лимитками. 11:00–21:00. Если в Onitsuka нет размера."],
+  ["osaka","Намба и Синсайбаси","HISEKI, Синсайбаси","Preview Building B1, 2-10-24 Nishi-Shinsaibashi, Chuo-ku, Osaka","Кольцо из монеты на заказ, от 1 900 йен. 11:00–19:30, последняя посадка в 19:00. Семь минут от Намбы. Вторая дверь в Харадзюку."],
+  ["osaka","Намба и Синсайбаси","Uniqlo Shinsaibashi","1-2-17 Shinsaibashisuji, Chuo-ku, Osaka","Большой Uniqlo у станции Синсайбаси. Те же базовые цены, что в Гиндзе, ассортимент уже. Кастом футболок только в Гиндзе. Имеет смысл, если тепло нужно ещё в Осаке."],
+  ["osaka","Миякоджима","Kogando","1-13-15 Zengenji-cho, Miyakojima-ku, Osaka","Антикварная и винтажная посуда, не дешёвый сток. 12:00–17:00, выходной плавает. Семь минут от станции Миякоджима. Это не Намба, отдельная поездка."],
+  ["kyoto","Сидзё","Сидзё и Карасума","Shijo-dori, Karasuma, Shimogyo-ku, Kyoto","Улица универмагов от Карасумы к Каварамати. От обычных сетей до дорогих этажей. В тот киотский день, который уже в центре."],
+  ["kyoto","Сидзё","Нисики","Nishiki-koji-dori, Nakagyo-ku, Kyoto","Крытый рынок еды. Здесь фурикакэ с перцем, пакетик обычно несколько сотен йен. Утром свободнее."],
+  ["kyoto","Сидзё","Kawaramachi OPA","385 Komeyacho, Kawaramachi-dori Shijo-agaru, Nakagyo-ku, Kyoto","Торговый центр женской одежды, средние марки. Book Off Plus на 8 этаже, если уже внутри: подержанные книги и манга дёшево."],
+  ["kyoto","Сидзё","JINS в OPA","Kawaramachi OPA B1, Nakagyo-ku, Kyoto","Очки для зрения внутри OPA, минус первый этаж. Пара с простыми линзами обычно 5 500–12 000 йен, около часа. Запасной к гинзскому JINS, не отдельная поездка."],
+  ["kyoto","Хигасияма","Kita Antique Shop","248-12 Nakanocho, Shinmonzen-dori Yamato-oji Higashi-iru, Higashiyama-ku, Kyoto","Антикварная керамика, Имари и Кутани. Дешёвые тарелки до 500 йен надо спросить отдельно, основной товар дороже. 10:00–18:00, выходной плавает. Это Гион, не Сидзё."],
+  ["kyoto","Терамати","Kyoto Antiques Center","60 Tokiwagicho, Teramachi-dori Nijo-agaru, Nakagyo-ku, Kyoto","Дом из многих антикварных лавок. Мелочь от примерно 500 йен, стекло от около 3 000. Понедельник и вторник выходной, 11:00–17:30. Пятнадцать минут пешком на север от Карасумы. 19 и 20 ноября открыт."],
+  ["kyoto","Тодзи","Кобо-ити, Тодзи","1 Kujo-cho, Minami-ku, Kyoto","Большой блошиный рынок: посуда, одежда, еда. Каждое 21-е число, 7:00–15:30, дождь не отменяет. 21 ноября это то же утро, что Ситэннодзи. Наличные."],
+  ["kyoto","Окадзаки","Highkarat, Хэйан-дзингу","Heian Shrine plaza, Okazaki, Sakyo-ku, Kyoto","Блошка: старая посуда, мебель, мелочь. Первое воскресенье месяца, 9:00–16:00, вход свободный, наличные. В 2026 это 6 декабря, тот же день, что Оэдо в Токио."],
+  ["tokyo","Асакуса","Каппабаси","Kappabashi-dori, Taito-ku, Tokyo","Улица посуды для ресторанов: тарелки, ножи, пластиковая еда. От дешёвой оптовки до хороших ножей. Десять минут пешком от Сэнсо-дзи. Часто до 17:00–18:00, часть лавок закрыта по воскресеньям."],
+  ["tokyo","Янака и Уэно","Yanaka Ginza","Yanaka Ginza, Taito-ku, Tokyo","Улица старого района. Seven Days и Vintage Kimono Shop: винтажное кимоно около 500 йен. Вместе с кладбищем Янака и храмом Нэдзу."],
+  ["tokyo","Янака и Уэно","Kimono Kisasagedo","3-43-9 Sendagi, Bunkyo-ku, Tokyo","Кимоно и хаори дороже улицы: хаори примерно 5 000–10 000 йен. 2 этаж. Вторник, среда и четверг выходной, 12:00–18:00. Заходить, только если дешёвое на Янаке не село."],
+  ["tokyo","Янака и Уэно","Kimono Dreamers","Kanda Nakazawa Building 7F, 6-14-12 Sotokanda, Chiyoda-ku, Tokyo","Новое и подержанное кимоно, только наличные. Около Уэно, часы плавают, примерно 12:00–20:00. Не обязательно, если Янака уже закрыла задачу."],
+  ["tokyo","Янака и Уэно","Национальная меховая, Ниппори","6-58-5 Higashi-Nippori, Arakawa-ku, Tokyo","Бывшая меховая мастерская, теперь винтаж у северного выхода Ниппори. Примерно 11:00–18:00, выходной плавает. По пути к Янаке."],
+  ["tokyo","Янака и Уэно","HINOYA","6-10-14 Ueno, Taito-ku, Tokyo","Японский деним на Амэёко, несколько дверей, 10:30–20:10. Sugar Cane чаще 18–28 тысяч йен, Momotaro 28–40 тысяч. Спросить, one-wash или сырые. Пропустить, если пара уже куплена в Namba Parks."],
+  ["tokyo","Янака и Уэно","Samurai Jeans","Ameyoko Plaza 2F, 6-10-7 Ueno, Taito-ku, Tokyo","Плотный деним примерно 30–45 тысяч йен. Тот же квартал, что HINOYA. Не отдельная поездка."],
+  ["tokyo","Китидзёдзи","PukuPuku","YK Building 1F, 2-18-8 Kichijoji-Honcho, Musashino-shi, Tokyo","Старая посуда с эпохи Эдо до начала Сёва. Чашки часто до 1 000 йен, битые около 200. 11:00–19:00. Это не Каппабаси. От Синдзюку около 20 минут по линии Тюо."],
+  ["tokyo","Харадзюку","atmos","3-22-8 Jingumae, Shibuya-ku, Tokyo","Лимитированные кроссовки. Цена от обычного Nike до очереди в день выхода модели. Будни к 11:00, до 20:00. Вывеска atmos pink — другой магазин."],
+  ["tokyo","Харадзюку","Beams","3-24-7 Jingumae, Shibuya-ku, Tokyo","Японский селект: взрослая одежда и местные марки. Футболка 5–12 тысяч, пальто 25–60 тысяч. Будни с 12:00, выходные с 11:00, до 20:00."],
+  ["tokyo","Харадзюку","Blue Elephant","3-23-5 Jingumae, Shibuya-ku, Tokyo","Корейские очки, примерно 6–12 тысяч йен, три этажа. Единственный магазин марки в Японии. 11:00–20:00. В выходные после обеда очередь."],
+  ["tokyo","Харадзюку","Onitsuka Tiger, Омотэсандо","4-24-14 Jingumae, Shibuya-ku, Tokyo","Основное место для кроссовок. Mexico 66 обычно 13–22 тысячи йен. Соседняя дверь Nippon Made, 4-25-13, сшита в Японии и дороже. 11:00–20:00."],
+  ["tokyo","Харадзюку","Pleats Please","5-3-8 Minami-Aoyama, Minato-ku, Tokyo","Плиссированная одежда Issey Miyake, обычно 30–70 тысяч йен за вещь, почти не мнётся. 11:00–20:00. Южный конец харадзюкской прогулки."],
+  ["tokyo","Харадзюку","Wego","1-5-10 Jingumae, Shibuya-ku, Tokyo","Подростковая одежда, примерно 2–8 тысяч йен. Флагман у станции Харадзюку, 10:30–20:00. Вторая дверь в SHIBUYA109, если день уже в Сибуе."],
+  ["tokyo","Харадзюку","Ragtag","5-17-9 Jingumae, Shibuya-ku, Tokyo","Секонд отобранных брендов, дороже 2nd Street. Между Харадзюку и Сибуей. 11:00–20:00. Вторая дверь в Сибуе."],
+  ["tokyo","Харадзюку","Fullcount","3-20-7 Jingumae, Shibuya-ku, Tokyo","Японский деним, примерно 25–35 тысяч йен. Тот же квартал, что Beams, не Уэно. 11:00–20:00."],
+  ["tokyo","Харадзюку","cas:pace","Kuwabara Building 1F, 3-24-3 Jingumae, Shibuya-ku, Tokyo","Чехлы и мелочи с картинками, средний ценник. Через дом от Beams. Будни 11:00–20:00, выходные до 21:00."],
+  ["tokyo","Харадзюку","HISEKI","VIA Harajuku 104, 1-15-1 Jingumae, Shibuya-ku, Tokyo","Кольцо из монеты на заказ, от 1 900 йен. Три минуты от станции Харадзюку. 11:00–19:30, последняя посадка в 19:00. Вторая дверь в Синсайбаси."],
+  ["tokyo","Сибуя","Shibuya PARCO","15-1 Udagawacho, Shibuya-ku, Tokyo","Urban Research и Journal Standard: топы 6–15 тысяч, пальто 25–45 тысяч. Maison Special моложе, 8–30 тысяч. Обычная носимая одежда."],
+  ["tokyo","Сибуя","Muji","Shibuya PARCO 4F, 15-1 Udagawacho, Shibuya-ku, Tokyo","Одежда и вещи для дома, спокойный средний ценник. Заходить, если гинзский Muji в этот день не попадётся."],
+  ["tokyo","Сибуя","thisisneverthat","10-3 Udagawacho, Shibuya-ku, Tokyo","Корейский стритвир. Худи и футболки примерно 8–25 тысяч, куртки около 35 тысяч. Флагман с арт-пространством, 12:00–20:00."],
+  ["tokyo","Сибуя","Onitsuka Tiger","Shibuya Jinnan Building 1-2F, 1-21-3 Jinnan, Shibuya-ku, Tokyo","Те же кроссовки, Mexico 66 обычно 13–22 тысячи йен. 11:00–20:00. Только если на Омотэсандо не было размера. Улица более туристическая."],
+  ["tokyo","Сибуя","Zara","25-10 Udagawacho, Shibuya-ku, Tokyo","Обычная Zara. Японский коллаб бывает не всегда. Имеет смысл, если коллаб на витрине и день уже в Сибуе. Вторая дверь в Гиндзе."],
+  ["tokyo","Сибуя","JINS","31-1 Udagawacho, Shibuya-ku, Tokyo","Очки для зрения за час, пара с простыми линзами обычно 5 500–12 000 йен. Запасной к Гиндзе. Свои очки взять с собой."],
+  ["tokyo","Сибуя","Zoff","Shibuya Mark City West 4F, 1-12-5 Dogenzaka, Shibuya-ku, Tokyo","Та же задача, что у JINS. Прямо у станции, 10:00–21:00. Хватит одного салона из двух."],
+  ["tokyo","Сибуя","ABC Mart","27-6 Udagawacho, Shibuya-ku, Tokyo","Обычная обувь без очереди за лимитками. Примерно 11:00–21:00. Если в Onitsuka нет размера."],
+  ["tokyo","Сибуя","Ragtag","1-17-7 Jinnan, Shibuya-ku, Tokyo","Вторая дверь того же секонда, севернее станции. 11:00–20:00. Харадзюкская дверь уже есть отдельно."],
+  ["tokyo","Гиндза","JINS","4-5-1 Ginza, Chuo-ku, Tokyo","Главные очки для зрения. С 10:00 в будний день. Пара обычно 5 500–12 000 йен, около часа. Ограниченную серию около 80–90 тысяч можно пройти. Свои очки с собой."],
+  ["tokyo","Гиндза","Zoff","Ginza Core, 5-8-20 Ginza, Chuo-ku, Tokyo","Запасные очки для зрения, если JINS занят. Около 11:00–20:00. Одного салона достаточно."],
+  ["tokyo","Гиндза","Gentle Monster","3-3-13 Ginza, Chuo-ku, Tokyo","Солнцезащитные примерно 35–55 тысяч йен и арт-зал. 11:00–20:00, будний день к открытию."],
+  ["tokyo","Гиндза","Muji","3-3-5 Ginza, Chuo-ku, Tokyo","Самый большой Muji: одежда, дом, еда. Спокойный средний ценник. 11:00–21:00, две минуты от Gentle Monster."],
+  ["tokyo","Гиндза","Uniqlo","6-9-5 Ginza, Chuo-ku, Tokyo","Флагман, 12 этажей. Heattech, кардиган, брюки, бомбер, куртка и кастом футболок UT. Термобельё в обтяжку. 11:00–21:00."],
+  ["tokyo","Гиндза","Zara","7-9-19 Ginza, Chuo-ku, Tokyo","Заходить, если на витрине японский коллаб. Сибуйская дверь есть отдельно."],
+  ["tokyo","Синдзюку","Isetan","3-14-1 Shinjuku, Shinjuku-ku, Tokyo","Универмаг. Coach по обычной цене. and wander на 3 этаже, куртки примерно 40–80 тысяч. Tsumori Chisato, принты около 20–50 тысяч, если есть на этаже."],
+  ["tokyo","Синдзюку","Book Off","1-10-2 Nishi-Shinjuku, Shinjuku-ku, Tokyo","Большой подержанный магазин: книги, манга, фигурки, одежда, дёшево и средне. 10:00–22:00. В выходные тесно."],
+  ["tokyo","Синдзюку","OFF COSME","Okubo, Shinjuku-ku, Tokyo","Аутлет корейской косметики, дешевле обычных полок. Одна остановка на север от Синдзюку. Японскую аптеку сюда не мешать."],
+  ["tokyo","Синдзюку","Ханадзоно","5-17-3 Shinjuku, Shinjuku-ku, Tokyo","Воскресная блошка во дворе святилища, с утра, наличные. Мелочь дешевле и хаотичнее Оэдо. 6 декабря совпадает с Оэдо."],
+  ["tokyo","Коэндзи и Накано","Коэндзи","Koenji Station, Suginami-ku, Tokyo","Винтаж вокруг станции: New York Joe, dracaena, Little Brothers, Goofys, Flamingo. Дешевле Омотэсандо, удачная вещь всё равно не дешёвая. Суббота 5 декабря."],
+  ["tokyo","Коэндзи и Накано","2nd Street","4-6-7 Koenji-Minami, Suginami-ku, Tokyo","Дешёвый случайный секонд, одежда и мелочь. Южнее станции. Дешевле Ragtag."],
+  ["tokyo","Коэндзи и Накано","Nakano Broadway","5-52-15 Nakano, Nakano-ku, Tokyo","Манга, фигурки, старые игры. Lashinbang здесь: средний бюджет, не самые дешёвые фигурки."],
+  ["tokyo","Коэндзи и Накано","Блошка Nakano Central Park","4-10-2 Nakano, Nakano-ku, Tokyo","Суббота и воскресенье, 10:00–16:00. 5 декабря после Коэндзи хватит часа. Наличные. Это обычная блошка, не антикварный Оэдо."],
+  ["tokyo","Маруноути и Кёбаси","Oedo Antique Market","Tokyo International Forum, 3-5-1 Marunouchi, Chiyoda-ku, Tokyo","Антикварный рынок. Первое и третье воскресенье месяца, 9:00–16:00. 6 декабря это первое воскресенье. Наличные. Дороже блошки в Накано."],
+  ["tokyo","Маруноути и Кёбаси","Marugo","1-17-1 Kyobashi, Chuo-ku, Tokyo","Таби и бархатные coppelia lily, около 13 200 йен. 10:30–18:30. Десять минут пешком от Оэдо."],
+  ["tokyo","Акихабара и Канда","Otachu","Oya Building 1-2F, 3-2-9 Sotokanda, Chiyoda-ku, Tokyo","Дешёвые аниме-фигурки. 11:00–20:00 каждый день. Четыре минуты от электрического выхода. Дешевле Lashinbang."],
+  ["tokyo","Акихабара и Канда","Bic Camera","4-1-1 Sotokanda, Chiyoda-ku, Tokyo","Электроника и камеры, рядом с Otachu. Цены сети и tax-free по паспорту. Имеет смысл, только если есть конкретная покупка."],
+  ["tokyo","Акихабара и Канда","Book Off","1-6-4 Kanda-Sakumacho, Chiyoda-ku, Tokyo","Подержанные книги, манга и игры у станции. 10:00–22:00. Меньше одежды, чем в Синдзюку. Если день уже в Акихабаре."],
+  ["tokyo","Акихабара и Канда","Vintage Miyabi","2-1-9 Higashikanda, Chiyoda-ku, Tokyo","Небольшой винтаж у Канды, рядом с Акихабарой. Цены секонда, не блошка. Только вместе с Акихабарой."],
+  ["tokyo","Симокитадзава","Chicago","5-32-5 Daizawa, Setagaya-ku, Tokyo","Большой винтаж, очень много кимоно. 11:00–20:00. Отдельный район у Сибуи, не Янака. Идти, если на Янаке кимоно не нашлось."],
+  ["tokyo","Накамэгуро","Traveler's Factory","3-13-10 Kamimeguro, Meguro-ku, Tokyo","Блокноты, печати, наклейки. Три минуты от южного выхода. 12:00–20:00, вторник выходной. Отдельный тихий кусок."],
+  ["tokyo","Кита-Сэндзю","Аптека и Daiso","Kita-Senju Station, Adachi-ku, Tokyo","У отеля. Daiso в основном 100 йен. Аптека: волосы, пластыри, капли, паста, грелки. Seims и Daikoku обычно дешевле. Утро 7 декабря перед сборами."],
+  ["tokyo","Ханеда","Терминал 3","Haneda Airport Terminal 3, Ota-ku, Tokyo","Royce Nama и региональный KitKat в день вылета, после стойки возврата налога. Nama тает, поэтому не раньше. В ручную кладь."],
+  ["nara","Нара","Блошка у конвеншн-центра","1-691-1 Sanjo-oji, Nara","Площадь рядом с JR Нара. Примерно 9:00–16:00, но не каждое воскресенье. На 2026 объявлены 5–6 декабря, когда вы уже в Токио. 22 ноября проверять афишу, иначе не ради неё ехать."]
+];
+let shopCity = "all";
+function renderShops() {
+  const root = document.getElementById("shops");
+  root.innerHTML = "";
+  [["osaka","Осака"],["kyoto","Киото"],["tokyo","Токио"],["nara","Нара"]].forEach(([id, title]) => {
+    if (shopCity !== "all" && shopCity !== id) return;
+    const rows = SHOPS.filter((row) => row[0] === id);
+    const h = document.createElement("h2");
+    h.textContent = title;
+    root.append(h);
+    let district = "";
+    rows.forEach((row) => {
+      if (row[1] !== district) {
+        district = row[1];
+        const d = document.createElement("h3");
+        d.textContent = district;
+        root.append(d);
+      }
+      const card = document.createElement("article");
+      const name = document.createElement("b");
+      name.textContent = row[2];
+      const link = document.createElement("a");
+      link.className = "addr";
+      link.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(row[3]);
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = row[3];
+      const text = document.createElement("p");
+      text.textContent = row[4];
+      card.append(name, document.createElement("br"), link, text);
+      root.append(card);
+    });
+  });
+}
+document.getElementById("pages").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  document.querySelectorAll("#pages button").forEach((b) => b.classList.toggle("on", b === btn));
+  const shops = btn.dataset.page === "shops";
+  document.getElementById("buy-view").classList.toggle("hidden", shops);
+  document.getElementById("shops-view").classList.toggle("hidden", !shops);
+  if (shops) renderShops();
+});
+document.getElementById("citybar").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  shopCity = btn.dataset.city;
+  document.querySelectorAll("#citybar button").forEach((b) => b.classList.toggle("on", b === btn));
+  renderShops();
+});
 loadMine();
+
 </script>
 </body>
 </html>
