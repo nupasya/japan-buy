@@ -277,19 +277,20 @@ function render() {
   groups.forEach(([cat, title]) => {
     if (filter !== "all" && filter !== cat) return;
     const rows = cat === "mine" ? mine : ITEMS.filter((it) => it.cat === cat);
-    if (!rows.length && cat === "mine" && filter !== "mine") return;
-    if (!rows.length && cat !== "mine") return;
+    const fromSheet = cat === "mine" ? [] : sharedItems.filter((item) => sharedKey(item.cat) === cat);
+    if (!rows.length && !fromSheet.length && cat === "mine" && filter !== "mine") return;
+    if (!rows.length && !fromSheet.length && cat !== "mine") return;
     const h = document.createElement("h2");
     h.textContent = title;
     list.append(h);
-    if (!rows.length) {
+    if (!rows.length && !fromSheet.length) {
       const p = document.createElement("p");
       p.className = "note";
       p.textContent = "Пока пусто. Форма внизу страницы.";
       list.append(p);
       return;
     }
-    rows.forEach((item) => {
+    rows.concat(fromSheet).forEach((item) => {
       let extra = null;
       if (item.local) {
         extra = document.createElement("p");
@@ -304,7 +305,7 @@ function render() {
         id: item.id,
         title: item.title,
         text: item.text,
-        photos: item.local ? (item.url ? [item.url] : []) : item.photos.map(photoUrl)
+        photos: item.local ? (item.url ? [item.url] : []) : (item.shared ? item.photos : item.photos.map(photoUrl))
       };
       list.append(card(view, extra));
     });
@@ -517,6 +518,18 @@ document.getElementById("citybar").addEventListener("click", (e) => {
 
 let sharedItems = [];
 let sharedError = "";
+function sharedKey(cat) {
+  const name = String(cat || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return {
+    "одежда": "clothes",
+    "лицо": "face",
+    "кожа и лицо": "face",
+    "волосы": "hair",
+    "аптека": "pharmacy",
+    "еда": "food",
+    "еда и мелочь": "food"
+  }[name] || "";
+}
 function cellText(cell) {
   if (!cell) return "";
   const raw = cell.v != null ? cell.v : (cell.f || "");
@@ -550,7 +563,7 @@ function renderShared() {
   folder.target = "_blank";
   folder.rel = "noopener";
   folder.textContent = "Общие покупки";
-  note.append(folder, " и в колонку «Фото» вставляйте ссылку на файл. В «Категория» напишите Одежда, Лицо, Волосы, Аптека или Еда, либо своё слово: страница сама соберёт новую группу. После новой строки обновите страницу.");
+  note.append(folder, " и в колонку «Фото» вставляйте ссылку на файл. В «Категория» напишите Одежда, Лицо, Волосы, Аптека или Еда: строка попадёт и в эту кнопку. Своё слово соберётся в отдельную группу. После новой строки обновите страницу.");
   list.append(note);
   if (sharedError) {
     const p = document.createElement("p");
@@ -559,6 +572,7 @@ function renderShared() {
     list.append(p);
     return;
   }
+  const rows = filter === "shared" ? sharedItems : sharedItems.filter((item) => !sharedKey(item.cat));
   if (!sharedItems.length) {
     const p = document.createElement("p");
     p.className = "note";
@@ -566,13 +580,14 @@ function renderShared() {
     list.append(p);
     return;
   }
+  if (!rows.length) return;
   const cats = [];
-  sharedItems.forEach((item) => { if (!cats.includes(item.cat)) cats.push(item.cat); });
+  rows.forEach((item) => { if (!cats.includes(item.cat)) cats.push(item.cat); });
   cats.forEach((cat) => {
     const sub = document.createElement("h3");
     sub.textContent = cat;
     list.append(sub);
-    sharedItems.filter((item) => item.cat === cat).forEach((item) => list.append(card(item)));
+    rows.filter((item) => item.cat === cat).forEach((item) => list.append(card(item)));
   });
 }
 window.japanSheet = function (resp) {
@@ -593,6 +608,7 @@ window.japanSheet = function (resp) {
       title: title || "Без названия",
       text: where ? "Где купить: " + where : "",
       cat: cat || "Без категории",
+      shared: true,
       photos: src ? [src] : []
     });
   });
